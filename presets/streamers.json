@@ -1,0 +1,13 @@
+{
+  "_example_gta_streamer": {
+    "profile": "gta6",
+    "layout": "facecam",
+    "facecam": "0.75,0.70,0.25,0.30",
+    "note": "facecam = x,y,width,height as fractions of the screen. This example is a cam in the bottom-right corner."
+  },
+  "_example_irl_streamer": {
+    "profile": "irl",
+    "layout": "center",
+    "note": "IRL streams are usually one phone camera, so 'center' (crop the middle) works best."
+  }
+}
