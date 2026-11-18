@@ -41,6 +41,7 @@ def download_audio(url: str, out_dir: str) -> str:
     run(ytdlp_base() + [
         "-f", "Audio_Only/ba/worst",
         "--concurrent-fragments", "8",
+        "--no-progress",
         "-o", template,
         url,
     ], quiet=False)

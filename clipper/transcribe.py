@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 import os
+import subprocess
 
-from .tools import FFMPEG, run
+import numpy as np
+
+from .tools import FFMPEG
 
 _model = None
 
@@ -20,17 +23,26 @@ def _get_model():
 
 def transcribe_window(audio_path: str, start: float, end: float, work_dir: str) -> list[dict]:
     """Words with timestamps relative to the VOD: [{'w': 'hello', 's': 123.4, 'e': 123.8}]."""
-    wav = os.path.join(work_dir, f"win_{int(start)}.wav")
-    run([FFMPEG, "-y", "-v", "error", "-ss", str(start), "-t", str(end - start),
-         "-i", audio_path, "-ac", "1", "-ar", "16000", wav])
-    segments, _info = _get_model().transcribe(wav, word_timestamps=True, vad_filter=True)
+    # Decode with ffmpeg ourselves and hand Whisper raw samples, so it never touches
+    # PyAV (newer PyAV versions break faster-whisper's own audio loader).
+    res = subprocess.run(
+        [FFMPEG, "-v", "error", "-ss", str(start), "-t", str(end - start), "-i", audio_path,
+         "-ac", "1", "-ar", "16000", "-f", "f32le", "-"],
+        capture_output=True,
+    )
+    if res.returncode != 0:
+        raise RuntimeError(f"ffmpeg could not read audio window at {start}s: {res.stderr[-500:]!r}")
+    samples = np.frombuffer(res.stdout, dtype=np.float32)
+    if samples.size < 16000:  # less than a second of audio
+        return []
+    segments, _info = _get_model().transcribe(samples, word_timestamps=True, vad_filter=True)
     words = []
     for seg in segments:
         for w in seg.words or []:
             text = w.word.strip()
             if text:
-                words.append({"w": text, "s": round(start + w.start, 2), "e": round(start + w.end, 2)})
-    os.remove(wav)
+                words.append({"w": text, "s": round(float(start + w.start), 2),
+                              "e": round(float(start + w.end), 2)})
     return words
 
 
